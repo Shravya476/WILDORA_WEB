@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="WILDORA - Smart Wildlife and Safer Communities">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="WILDORA">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <title>WILDORA | Smart Wildlife</title>
+  <link rel="manifest" href="manifest.json">
+  <script>
+    // Firebase initialization
+    window.flutterWebRenderer = "html";
+
+    // WILDORA high-risk horn. The audio context is primed from a real user
+    // gesture (opening manual search or enabling live tracking), so browsers
+    // can play the warning later when an async prediction returns HIGH.
+    let wildoraAudioContext = null;
+    let wildoraAlarmNodes = [];
+    let wildoraAlarmInterval = null;
+    let wildoraAlarmTimeout = null;
+
+    window.wildoraPrimeRiskAlarm = function () {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!wildoraAudioContext) wildoraAudioContext = new AudioCtx();
+        if (wildoraAudioContext.state === 'suspended') {
+          wildoraAudioContext.resume();
+        }
+      } catch (e) {
+        console.warn('WILDORA audio prime unavailable', e);
+      }
+    };
+
+    window.wildoraStopRiskAlarm = function () {
+      try {
+        if (wildoraAlarmInterval) clearInterval(wildoraAlarmInterval);
+        if (wildoraAlarmTimeout) clearTimeout(wildoraAlarmTimeout);
+        wildoraAlarmInterval = null;
+        wildoraAlarmTimeout = null;
+        wildoraAlarmNodes.forEach((node) => {
+          try { node.stop(); } catch (_) {}
+          try { node.disconnect(); } catch (_) {}
+        });
+        wildoraAlarmNodes = [];
+        if (navigator.vibrate) navigator.vibrate(0);
+      } catch (_) {}
+    };
+
+    window.wildoraPlayRiskAlarm = function (risk) {
+      try {
+        window.wildoraPrimeRiskAlarm();
+        window.wildoraStopRiskAlarm();
+        if (!wildoraAudioContext) return;
+
+        const ctx = wildoraAudioContext;
+        const isMedium = String(risk || 'HIGH').toUpperCase() === 'MEDIUM';
+        const master = ctx.createGain();
+        master.gain.setValueAtTime(0.0001, ctx.currentTime);
+        master.gain.exponentialRampToValueAtTime(isMedium ? 0.24 : 0.32, ctx.currentTime + 0.05);
+        master.connect(ctx.destination);
+
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        osc1.type = 'sawtooth';
+        osc2.type = 'square';
+        osc1.frequency.setValueAtTime(isMedium ? 360 : 430, ctx.currentTime);
+        osc2.frequency.setValueAtTime(isMedium ? 450 : 520, ctx.currentTime);
+        osc1.connect(master);
+        osc2.connect(master);
+        osc1.start();
+        osc2.start();
+        wildoraAlarmNodes = [osc1, osc2];
+
+        let highTone = false;
+        if (isMedium) {
+          // MEDIUM risk uses a clearly intermittent horn: HORN -> STOP -> HORN.
+          // This repeats instead of producing one continuous tone.
+          let hornOn = true;
+          wildoraAlarmInterval = setInterval(() => {
+            hornOn = !hornOn;
+            const t = ctx.currentTime;
+            if (hornOn) {
+              osc1.frequency.setTargetAtTime(540, t, 0.04);
+              osc2.frequency.setTargetAtTime(640, t, 0.04);
+              master.gain.setTargetAtTime(0.28, t, 0.03);
+            } else {
+              master.gain.setTargetAtTime(0.0001, t, 0.03);
+            }
+          }, 750);
+        } else {
+          // HIGH risk keeps the stronger alternating siren pattern.
+          wildoraAlarmInterval = setInterval(() => {
+            highTone = !highTone;
+            const t = ctx.currentTime;
+            osc1.frequency.setTargetAtTime(highTone ? 650 : 430, t, 0.04);
+            osc2.frequency.setTargetAtTime(highTone ? 760 : 520, t, 0.04);
+            master.gain.setTargetAtTime(highTone ? 0.38 : 0.24, t, 0.03);
+          }, 420);
+        }
+
+        if (navigator.vibrate) {
+          navigator.vibrate(isMedium ? [300, 150, 300, 350, 300] : [500, 180, 500, 180, 800, 250, 800]);
+        }
+
+        // Safety cap: the horn stops automatically after 7 seconds even if
+        // the warning dialog is not dismissed.
+        wildoraAlarmTimeout = setTimeout(window.wildoraStopRiskAlarm, 7000);
+      } catch (e) {
+        console.warn('WILDORA risk alarm unavailable', e);
+      }
+    };
+  </script>
+</head>
+<body>
+  <script src="flutter_bootstrap.js" async></script>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+    import { getAuth } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyABrSVkvce2iVC4zSC4MfI-fgPzF12DgLA",
+      authDomain: "hwc-alert-499711.firebaseapp.com",
+      projectId: "hwc-alert-499711",
+      storageBucket: "hwc-alert-499711.firebasestorage.app",
+      messagingSenderId: "855616726627",
+      appId: "1:855616726627:web:ba0901e2941463857efa56",
+      measurementId: "G-GZPN81G9KK"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    window.firebaseApp = app;
+  </script>
+</body>
+</html>

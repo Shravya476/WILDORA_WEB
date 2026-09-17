@@ -1,0 +1,11 @@
+WILDORA Wildlife Images
+
+The Wildlife page keeps the same 11 original Wikimedia Commons photo URLs
+already used by the project in lib/screens/home_screen.dart.
+
+For faster loading in the Flutter web app, the page requests a 640px WebP
+version of each SAME source photo through an image resizing/cache proxy.
+The original Wikimedia URL is still retained and is used as a fallback if
+the fast image service is unavailable.
+
+No replacement or generated wildlife photos are used.
