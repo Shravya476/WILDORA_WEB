@@ -1,0 +1,5 @@
+WILDORA VOICE SEARCH
+
+Manual Search now includes a microphone button. Users can say a place name instead of typing it. Speech is converted to text and the existing place search/risk prediction flow is used automatically. The control has accessibility labels for screen readers and works with browser/device microphone permissions.
+
+After changing dependencies, run flutter pub get before building.
