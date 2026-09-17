@@ -1,4 +1,3 @@
-```dart
 import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -1211,4 +1210,3 @@ class _ForestPatternPainter extends CustomPainter {
   ) =>
       false;
 }
-```
